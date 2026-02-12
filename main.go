@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -16,6 +18,7 @@ import (
 )
 
 const port = ":8080"
+const stateFile = "server_state.json"
 
 var (
 	serverCounter     int
@@ -24,26 +27,85 @@ var (
 	baseContainerPort = 42420
 )
 
+const (
+	defaultPlayerSlots = 1
+	defaultMemoryLimit = int64(1395864371) // 1.30 GB in bytes (base 1024)
+	memoryPerPlayer    = int64(314572800)  // 300 MB in bytes (base 1024)
+)
+
+type ServerState struct {
+	ServerCounter int `json:"server_counter"`
+	BaseHostPort  int `json:"base_host_port"`
+}
+
+func loadServerState() (*ServerState, error) {
+	file, err := os.ReadFile(stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &ServerState{ServerCounter: 0, BaseHostPort: baseHostPort}, nil
+		}
+		return nil, err
+	}
+
+	var state ServerState
+	if err := json.Unmarshal(file, &state); err != nil {
+		return nil, err
+	}
+	return &state, nil
+}
+
+func saveServerState(state *ServerState) error {
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(stateFile, data, 0644)
+}
+
 func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	serverMutex.Lock()
-	serverCounter++
-	name := fmt.Sprintf("server%d", serverCounter)
-	hostPort := fmt.Sprintf("%d", baseHostPort+serverCounter)
+	defer serverMutex.Unlock()
+
+	state, err := loadServerState()
+	if err != nil {
+		http.Error(w, "Failed to load server state", http.StatusInternalServerError)
+		return
+	}
+
+	state.ServerCounter++
+	name := fmt.Sprintf("server%d", state.ServerCounter)
+	hostPort := fmt.Sprintf("%d", state.BaseHostPort+state.ServerCounter)
 	containerPort := fmt.Sprintf("%d", baseContainerPort)
-	serverMutex.Unlock()
 
 	image := r.URL.Query().Get("image")
 	if image == "" {
 		image = "server-vintagestory:latest"
 	}
 
-	containerID, err := createContainerFromTemplate(r.Context(), image, name, hostPort, containerPort)
+	// Get player slots from query parameter
+	playerSlotsParam := r.URL.Query().Get("players")
+	playerSlots := defaultPlayerSlots
+	if playerSlotsParam != "" {
+		if parsedSlots, err := strconv.Atoi(playerSlotsParam); err == nil && parsedSlots > 0 {
+			playerSlots = parsedSlots
+		}
+	}
+
+	// Calculate memory limit based on player slots
+	totalMemory := defaultMemoryLimit + (int64(playerSlots-1) * memoryPerPlayer)
+
+	containerID, err := createContainerFromTemplate(r.Context(), image, name, hostPort, containerPort, totalMemory)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s", containerID, name, hostPort)
+	if err := saveServerState(state); err != nil {
+		http.Error(w, "Failed to save server state", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots", containerID, name, hostPort, playerSlots)
 }
 
 func main() {
@@ -58,7 +120,7 @@ func main() {
 	http.ListenAndServe(port, nil)
 }
 
-func createContainerFromTemplate(ctx context.Context, image string, name string, hostPort string, containerPort string) (string, error) {
+func createContainerFromTemplate(ctx context.Context, image string, name string, hostPort string, containerPort string, memoryLimit int64) (string, error) {
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -72,6 +134,9 @@ func createContainerFromTemplate(ctx context.Context, image string, name string,
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			nat.Port(containerPort + "/tcp"): {{HostPort: hostPort}},
 			nat.Port(containerPort + "/udp"): {{HostPort: hostPort}},
+		},
+		Resources: container.Resources{
+			Memory: memoryLimit,
 		},
 	}
 
