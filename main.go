@@ -73,7 +73,13 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state.ServerCounter++
-	name := fmt.Sprintf("server%d", state.ServerCounter)
+
+	// Get container name from query parameter
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		name = fmt.Sprintf("server%d", state.ServerCounter)
+	}
+
 	hostPort := fmt.Sprintf("%d", state.BaseHostPort+state.ServerCounter)
 	containerPort := fmt.Sprintf("%d", baseContainerPort)
 
