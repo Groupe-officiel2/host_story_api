@@ -27,14 +27,14 @@ export API_KEY=secret123
 Start the server:
 
 ```bash
-go run main.go
+go run .
 ```
 
 To specify the number of players (e.g., 3 players, which adds 300MB per player to the default 1.30GB memory):
 
 ```bash
-curl -H "X-API-Key: secret123" "http://localhost:8080/template?image=server-vintagestory:latest&players=2"
 curl -H "X-API-Key: secret123" "http://localhost:8080/template?image=server-vintagestory:latest&players=2&name=example"
+curl -H "X-API-Key: secret123" "http://localhost:8080/toggle?name=example"
 ```
 
-If you set `players=0` or omit the `players` parameter, the default memory for 1 player (1.30GB) will be used.
+
