@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"context"
+
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
@@ -50,4 +52,21 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots", containerID, name, hostPort, playerSlots)
+}
+
+func ToggleHandler(w http.ResponseWriter, r *http.Request) {
+    name := r.URL.Query().Get("name")
+
+    if name == "" {
+        http.Error(w, "server name is required", http.StatusBadRequest)
+        return
+    }
+
+    result, err := ToggleContainer(context.Background(), name)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    fmt.Fprintf(w, "Container %s %s", name, result)
 }

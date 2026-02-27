@@ -4,10 +4,10 @@ import (
 	"context"
 	"net"
 	"strconv"
+	"time"
 
 	"fmt"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -59,9 +59,82 @@ func CreateContainerFromTemplate(ctx context.Context, image string, name string,
 		return "", fmt.Errorf("container create error: %w", err)
 	}
 
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", fmt.Errorf("container start error: %w", err)
 	}
 
 	return resp.ID, nil
+}
+
+
+func getDockerClient() (*client.Client, error) {
+    return client.NewClientWithOpts(
+        client.FromEnv,
+        client.WithAPIVersionNegotiation(),
+    )
+}
+
+
+func StartContainer(ctx context.Context, id string) error {
+    cli, err := getDockerClient()
+    if err != nil {
+        return err
+    }
+
+    return cli.ContainerStart(ctx, id, container.StartOptions{})
+}
+
+
+func StopContainer(ctx context.Context, id string) error {
+    cli, err := getDockerClient()
+    if err != nil {
+        return err
+    }
+
+    // SIGTERM pour sauvegarde propre
+    if err := cli.ContainerKill(ctx, id, "SIGTERM"); err != nil {
+        return fmt.Errorf("SIGTERM error: %w", err)
+    }
+
+    // Laisser le serveur sauvegarder
+    time.Sleep(2 * time.Second)
+
+    // Stop forcé si nécessaire
+    if err := cli.ContainerStop(ctx, id, container.StopOptions{}); err != nil {
+        return fmt.Errorf("stop error: %w", err)
+    }
+
+    return nil
+}
+
+
+func ToggleContainer(ctx context.Context, id string) (string, error) {
+    cli, err := getDockerClient()
+    if err != nil {
+        return "", err
+    }
+
+    inspect, err := cli.ContainerInspect(ctx, id)
+    if err != nil {
+        return "", fmt.Errorf("inspect error: %w", err)
+    }
+
+	if inspect.Config.Labels["com.docker.compose.project"] != "server" {
+    	return "", fmt.Errorf("unauthorized container: not part of server project")
+	}
+
+    if !inspect.State.Running {
+        // Le conteneur est OFF → ON
+        if err := StartContainer(ctx, id); err != nil {
+            return "", err
+        }
+        return "started", nil
+    }
+
+    // Le conteneur est ON → OFF
+    if err := StopContainer(ctx, id); err != nil {
+        return "", err
+    }
+
+    return "stopped", nil
 }
