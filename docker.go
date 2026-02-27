@@ -13,7 +13,7 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-// findAvailablePort checks for an available port starting from a given base port
+// checks for an available port starting from a given base port
 func findAvailablePort(basePort int) (int, error) {
 	for port := basePort; port < basePort+1000; port++ {
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))

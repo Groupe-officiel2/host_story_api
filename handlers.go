@@ -11,14 +11,6 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
 
-	state, err := loadServerState()
-	if err != nil {
-		http.Error(w, "Failed to load server state", http.StatusInternalServerError)
-		return
-	}
-
-	state.ServerCounter++
-
 	// Get container name from query parameter
 	name := r.URL.Query().Get("name")
 	if name == "" {
@@ -26,7 +18,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hostPort := fmt.Sprintf("%d", state.BaseHostPort+state.ServerCounter)
+	hostPort := fmt.Sprintf("%d", baseHostPort+serverCounter)
 	containerPort := fmt.Sprintf("%d", baseContainerPort)
 
 	image := r.URL.Query().Get("image")
@@ -54,12 +46,6 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	containerID, err := CreateContainerFromTemplate(r.Context(), image, name, hostPort, containerPort, totalMemory)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Save the updated server state
-	if err := saveServerState(state); err != nil {
-		http.Error(w, "Failed to save server state", http.StatusInternalServerError)
 		return
 	}
 
