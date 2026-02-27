@@ -1,0 +1,13 @@
+services:
+  vintagestory:
+    build: .
+    container_name: vintagestory
+    restart: "no"
+    ports:
+      - "42420:42420/udp"
+      - "42420:42420"
+    environment:
+      - DATA_PATH=/tmp/vsdata
+      - ADVERTISE_SERVER=true
+      - WHITELIST_MODE=1
+    tty: true
