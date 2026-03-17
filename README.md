@@ -18,23 +18,20 @@ Container launched: <container_id> with name server3 on host port 42722 and 3 pl
 
 ### Running the API
 
-Set the `API_KEY` environment variable and run the server:
-
-```bash
-export API_KEY=secret123
-```
-
 Start the server:
 
 ```bash
 go run .
-```
 
-To specify the number of players (e.g., 3 players, which adds 300MB per player to the default 1.30GB memory):
+# Test endpoint protégé
+TOKEN=$(python3 generate_jwt.py | awk '{print $4}')
+curl -H "Authorization: $TOKEN" http://localhost:8080/protected
 
-```bash
-curl -H "X-API-Key: secret123" "http://localhost:8080/template?image=server-vintagestory:latest&players=2&name=example"
-curl -H "X-API-Key: secret123" "http://localhost:8080/toggle?name=example"
+# Crée un serveur nommé paladium avec 2 joueurs
+curl -H "Authorization: $TOKEN" "http://localhost:8080/template?image=server-vintagestory:latest&players=2&name=example"
+
+# Toggle le serveur paladium
+curl -H "Authorization: $TOKEN" "http://localhost:8080/toggle?name=example"
 ```
 
 

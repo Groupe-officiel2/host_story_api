@@ -1,17 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
-	"context"
-
+	"strings"
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
 func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
+
+	ownerID := UserIDFromContext(r.Context())
+	if ownerID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Get container name from query parameter
 	name := r.URL.Query().Get("name")
@@ -45,7 +51,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	// Calculate memory limit based on player slots
 	totalMemory := defaultMemoryLimit + (int64(playerSlots-1) * memoryPerPlayer)
 
-	containerID, err := CreateContainerFromTemplate(r.Context(), image, name, hostPort, containerPort, totalMemory)
+	containerID, err := CreateContainerFromTemplate(r.Context(), image, name, hostPort, containerPort, totalMemory, ownerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -55,18 +61,24 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 }
 
 func ToggleHandler(w http.ResponseWriter, r *http.Request) {
-    name := r.URL.Query().Get("name")
+	name := r.URL.Query().Get("name")
 
-    if name == "" {
-        http.Error(w, "server name is required", http.StatusBadRequest)
-        return
-    }
+	if name == "" {
+		http.Error(w, "server name is required", http.StatusBadRequest)
+		return
+	}
 
-    result, err := ToggleContainer(context.Background(), name)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	actorRole := UserRoleFromContext(r.Context())
+	if !strings.EqualFold(actorRole, "admin") {
+		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
+		return
+	}
 
-    fmt.Fprintf(w, "Container %s %s", name, result)
+	result, err := ToggleContainer(context.Background(), name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "Container %s %s", name, result)
 }

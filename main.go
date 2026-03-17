@@ -2,14 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"sync"
 )
 
 const port = ":8080"
-const stateFile = "server_state.json"
 
 var (
 	serverCounter     int
@@ -19,12 +16,7 @@ var (
 )
 
 func main() {
-	apiKey := os.Getenv("API_KEY")
-	if apiKey == "" {
-		log.Fatal("API_KEY is required")
-	}
-
-	RegisterRoutes(apiKey)
+	RegisterRoutes()
 
 	fmt.Printf("(http://localhost:8080) - Server is running on port %s\n", port)
 	http.ListenAndServe(port, nil)
