@@ -57,7 +57,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots", containerID, name, hostPort, playerSlots)
+	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots\n", containerID, name, hostPort, playerSlots)
 }
 
 func ToggleHandler(w http.ResponseWriter, r *http.Request) {
@@ -80,5 +80,5 @@ func ToggleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "Container %s %s", name, result)
+	fmt.Fprintf(w, "Container %s %s\n", name, result)
 }
