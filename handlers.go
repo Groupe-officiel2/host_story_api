@@ -1,3 +1,5 @@
+// handlers.go
+
 package main
 
 import (
@@ -6,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"encoding/json"
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
@@ -57,6 +60,13 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    servers = append(servers, Server{
+        ID:      len(servers) + 1,
+        Name:    name,
+        Players: 0,
+        Slots:   playerSlots,
+    })
+
 	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots\n", containerID, name, hostPort, playerSlots)
 }
 
@@ -81,4 +91,13 @@ func ToggleHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "Container %s %s\n", name, result)
+}
+
+func GetServers(w http.ResponseWriter, r *http.Request) {
+    for i := range servers {
+        servers[i].Players = GetPlayersForServer(servers[i].Name)
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(servers)
 }

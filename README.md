@@ -1,4 +1,4 @@
-## API Documentation
+composer install## API Documentation
 
 The Go API allows you to manage Vintage Story servers dynamically. Below are the available endpoints:
 

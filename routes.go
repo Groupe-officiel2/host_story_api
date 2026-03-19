@@ -1,3 +1,5 @@
+// routes.go
+
 package main
 
 import "net/http"
@@ -14,4 +16,5 @@ func RegisterRoutes() {
 
 	http.HandleFunc("/template", WithJWTAuth(CreateTemplateContainer))
 	http.HandleFunc("/toggle", WithJWTAuth(ToggleHandler))
+    http.HandleFunc("/servers", GetServers)
 }
