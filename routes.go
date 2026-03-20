@@ -16,5 +16,5 @@ func RegisterRoutes() {
 
 	http.HandleFunc("/template", WithJWTAuth(CreateTemplateContainer))
 	http.HandleFunc("/toggle", WithJWTAuth(ToggleHandler))
-    http.HandleFunc("/servers", GetServers)
+	http.HandleFunc("/servers", WithJWTAuth(GetServers))
 }

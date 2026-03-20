@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"encoding/json"
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
