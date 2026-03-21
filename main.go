@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const port = ":8080"
+const port = ":8082"
 
 var (
 	serverCounter     int

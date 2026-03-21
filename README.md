@@ -34,4 +34,17 @@ curl -H "Authorization: $TOKEN" "http://localhost:8080/template?image=server-vin
 curl -H "Authorization: $TOKEN" "http://localhost:8080/toggle?name=example"
 ```
 
+```bash
+docker build -t host-story-api:1.0 .
+```
+
+```bash
+docker run -d \
+  --name host-story-api \
+  --restart unless-stopped \
+  -p 80:8082 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  host-story-api:1.0
+```
+
 
