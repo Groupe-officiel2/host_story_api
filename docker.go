@@ -58,6 +58,8 @@ func CreateContainerFromTemplate(ctx context.Context, image string, name string,
 		Labels: map[string]string{
 			"owner-id": ownerID,
 		},
+		Tty: true,
+		OpenStdin: true,
 	}, hostConfig, nil, nil, name)
 	if err != nil {
 		return "", fmt.Errorf("container create error: %w", err)
