@@ -1,13 +1,13 @@
-// players.go
-
 package main
 
 import (
+	"bytes"
 	"context"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 func GetPlayersForServer(containerName string) int {
@@ -27,20 +27,35 @@ func GetPlayersForServer(containerName string) int {
 
 			if strings.Contains(name, containerName) {
 
-				logs, err := cli.ContainerLogs(context.Background(), c.ID, container.LogsOptions{
+				reader, err := cli.ContainerLogs(context.Background(), c.ID, container.LogsOptions{
 					ShowStdout: true,
-					Tail:       "100",
+					ShowStderr: true,
+					Tail:       "1000",
 				})
 				if err != nil {
 					return 0
 				}
 
-				buf := new(strings.Builder)
-				_, _ = buf.ReadFrom(logs)
+				var stdout, stderr bytes.Buffer
 
-				logContent := buf.String()
+				// 🔥 TRÈS IMPORTANT
+				_, err = stdcopy.StdCopy(&stdout, &stderr, reader)
+				if err != nil {
+					return 0
+				}
 
-				return strings.Count(logContent, "joined")
+				logContent := stdout.String()
+
+				joins := strings.Count(logContent, " joins.")
+				leaves := strings.Count(logContent, " disconnected")
+
+				players := joins - leaves
+
+				if players < 0 {
+					return 0
+				}
+
+				return players
 			}
 		}
 	}

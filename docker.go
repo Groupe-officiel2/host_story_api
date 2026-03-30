@@ -46,10 +46,20 @@ func CreateContainerFromTemplate(ctx context.Context, image string, name string,
 	}
 
 	hostConfig := &container.HostConfig{
-		PortBindings: map[nat.Port][]nat.PortBinding{
-			nat.Port(containerPort + "/tcp"): {{HostPort: hostPort}},
-			nat.Port(containerPort + "/udp"): {{HostPort: hostPort}},
-		},
+		PortBindings: nat.PortMap{
+            nat.Port(containerPort + "/tcp"): []nat.PortBinding{
+                {
+                    HostIP:   "0.0.0.0",
+                    HostPort: hostPort,
+                },
+            },
+            nat.Port(containerPort + "/udp"): []nat.PortBinding{
+                {
+                    HostIP:   "0.0.0.0",
+                    HostPort: hostPort,
+                },
+            },
+        },
 		Resources: container.Resources{
 			Memory: memoryLimit,
 		},
@@ -57,9 +67,13 @@ func CreateContainerFromTemplate(ctx context.Context, image string, name string,
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image: image,
-		Labels: map[string]string{
-			"owner-id": ownerID,
-		},
+		ExposedPorts: nat.PortSet{
+                nat.Port(containerPort + "/tcp"): struct{}{},
+                nat.Port(containerPort + "/udp"): struct{}{},
+            },
+            Labels: map[string]string{
+                "owner-id": ownerID,
+            },
 	}, hostConfig, nil, nil, name)
 	if err != nil {
 		return "", fmt.Errorf("container create error: %w", err)
