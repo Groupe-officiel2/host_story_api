@@ -26,8 +26,12 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hostPort := fmt.Sprintf("%d", baseHostPort+serverCounter)
-	containerPort := fmt.Sprintf("%d", baseContainerPort)
+	availablePort, err := findAvailablePort()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("no available ports: %v", err), http.StatusInternalServerError)
+		return
+	}
+	hostPort := strconv.Itoa(availablePort)
 
 	image := r.URL.Query().Get("image")
 	if image == "" {
@@ -36,7 +40,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 
 	// Get player slots from query parameter
 	playerSlotsParam := r.URL.Query().Get("players")
-	playerSlots := 1
+	playerSlots := 2
 	if playerSlotsParam != "" {
 		if parsedSlots, err := strconv.Atoi(playerSlotsParam); err == nil && parsedSlots > 0 {
 			playerSlots = parsedSlots
@@ -51,12 +55,19 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	// Calculate memory limit based on player slots
 	totalMemory := defaultMemoryLimit + (int64(playerSlots-1) * memoryPerPlayer)
 
-	containerID, err := CreateContainerFromTemplate(r.Context(), image, name, hostPort, containerPort, totalMemory, ownerID)
+	containerID, err := CreateContainer(r.Context(), image, name, hostPort, totalMemory, ownerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	err = StartContainer(r.Context(), containerID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to start container: %v", err), http.StatusInternalServerError)
+		return
+	}
 
+	SVRPort, err := strconv.Atoi(hostPort)
+	AddSRVRecord(SVRPort, name)
 	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots\n", containerID, name, hostPort, playerSlots)
 }
 

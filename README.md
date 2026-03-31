@@ -27,7 +27,7 @@ curl -H "Authorization: $TOKEN" http://0.0.0.0/protected
 # Crée un serveur nommé paladium avec 2 joueurs
 curl -H "Authorization: $TOKEN" "http://0.0.0.0/template?image=server-vintagestory:latest&players=2&name=example"
 # Toggle le serveur paladium
-curl -H "Authorization: $TOKEN" "http://0.0.0.0/toggle?name=example"
+curl -H "Authorization: $TOKEN" "http://82.67.195.93:8082/toggle?name=example"
 ```
 
 ```bash
