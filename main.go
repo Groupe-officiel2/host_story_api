@@ -18,6 +18,6 @@ var (
 func main() {
 	RegisterRoutes()
 
-	fmt.Printf("(http://localhost:8080) - Server is running on port %s\n", port)
+	fmt.Printf("(http://localhost:8082) - Server is running on port %s\n", port)
 	http.ListenAndServe(port, nil)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-var jwtKey = []byte("secret")
+var jwtKey = []byte("D2HK5om9IbHFtr5PNN2bDx4+2N3cnE6PJ8DC4KN1EM4=")
 
 type contextKey string
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
@@ -65,12 +64,6 @@ func ToggleHandler(w http.ResponseWriter, r *http.Request) {
 
 	if name == "" {
 		http.Error(w, "server name is required", http.StatusBadRequest)
-		return
-	}
-
-	actorRole := UserRoleFromContext(r.Context())
-	if !strings.EqualFold(actorRole, "admin") {
-		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
 		return
 	}
 
