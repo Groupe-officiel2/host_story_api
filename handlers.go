@@ -60,6 +60,33 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    go func() {
+        jsonData := fmt.Sprintf(`{
+            "id": "%s",
+            "name": "%s",
+            "slots": %d
+        }`, containerID, name, playerSlots)
+
+        req, err := http.NewRequest("POST", "http://localhost:8000/api/servers", strings.NewReader(jsonData))
+        if err != nil {
+            fmt.Println("Laravel request error:", err)
+            return
+        }
+
+        req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("X-API-KEY", "SECRET123")
+
+        client := &http.Client{}
+        resp, err := client.Do(req)
+        if err != nil {
+            fmt.Println("Laravel API error:", err)
+            return
+        }
+        defer resp.Body.Close()
+
+        fmt.Println("Server saved in Laravel:", resp.Status)
+    }()
+
     servers = append(servers, Server{
         ID:      len(servers) + 1,
         Name:    name,
@@ -116,4 +143,5 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(servers)
+	fmt.Println("Servers count:", len(servers))
 }

@@ -19,6 +19,10 @@ def generate_jwt(user_id, role="user"):
     }
 
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+    if isinstance(token, bytes):
+            token = token.decode("utf-8")
+
     return token
 
 if __name__ == "__main__":
