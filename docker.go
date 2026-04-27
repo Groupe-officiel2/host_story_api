@@ -156,3 +156,22 @@ func ToggleContainer(ctx context.Context, name string) (string, error) {
 
 	return "stopped", nil
 }
+
+func IsContainerRunning(name string) (bool, error) {
+    cli, err := getDockerClient()
+    if err != nil {
+        return false, err
+    }
+
+    id, err := findContainerIDByName(context.Background(), cli, name)
+    if err != nil {
+        return false, err
+    }
+
+    inspect, err := cli.ContainerInspect(context.Background(), id)
+    if err != nil {
+        return false, err
+    }
+
+    return inspect.State.Running, nil
+}

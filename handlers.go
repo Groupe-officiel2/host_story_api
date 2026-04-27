@@ -75,3 +75,24 @@ func ToggleHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "Container %s %s\n", name, result)
 }
+
+func StatusHandler(w http.ResponseWriter, r *http.Request) {
+    name := r.URL.Query().Get("name")
+    if name == "" {
+        http.Error(w, "server name is required", http.StatusBadRequest)
+        return
+    }
+
+    running, err := IsContainerRunning(name)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    if running {
+        fmt.Fprintf(w, "running")
+    } else {
+        fmt.Fprintf(w, "stopped")
+    }
+}
+
