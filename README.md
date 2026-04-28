@@ -23,9 +23,9 @@ Start the server:
 ```bash
 # Test endpoint protégé
 TOKEN=$(python3 generate_jwt.py | awk '{print $4}')
-curl -H "Authorization: $TOKEN" http://0.0.0.0/protected
+curl -H "Authorization: $TOKEN" http://127.0.0.1:8082/protected
 # Crée un serveur nommé paladium avec 2 joueurs
-curl -H "Authorization: $TOKEN" "http://0.0.0.0/template?image=server-vintagestory:latest&players=2&name=example"
+curl -H "Authorization: $TOKEN" "http://127.0.0.1:8082/template?image=server-vintagestory:latest&players=2&name=example"
 # Toggle le serveur paladium
 curl -H "Authorization: $TOKEN" "http://82.67.195.93:8082/toggle?name=example"
 ```

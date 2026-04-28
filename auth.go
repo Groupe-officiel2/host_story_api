@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 )
 
-var jwtKey = []byte("secret")
+var jwtKey = []byte(os.Getenv("TOKEN"))
 
 type contextKey string
 
