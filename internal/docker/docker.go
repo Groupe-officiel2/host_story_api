@@ -1,4 +1,4 @@
-package main
+package docker
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 )
 
 // checks for an available port starting from a given base port
-func findAvailablePort() (int, error) {
+func FindAvailablePort() (int, error) {
 	basePort := 42420
 	for port := basePort; port < basePort+1000; port++ {
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))

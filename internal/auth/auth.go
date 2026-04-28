@@ -1,4 +1,4 @@
-package main
+package auth
 
 import (
 	"context"
@@ -9,7 +9,9 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-var jwtKey = []byte(os.Getenv("TOKEN"))
+func jwtSecret() []byte {
+	return []byte(os.Getenv("TOKEN"))
+}
 
 type contextKey string
 
@@ -39,7 +41,7 @@ func tokenFromAuthorizationHeader(value string) string {
 // ValidateJWT validates a JWT token and extracts the user ID and role.
 func ValidateJWT(tokenString string) (string, string, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &AuthClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
+		return jwtSecret(), nil
 	})
 	if err != nil {
 		return "", "", err
