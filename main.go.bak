@@ -6,17 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"sync"
+	"strings"
 
     "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-)
-
-var (
-	baseHostPort      = 42000 // Port de base pour les serveurs
-	baseContainerPort = 42000
-	serverCounter     = 0
-	serverMutex       sync.Mutex
 )
 
 func main() {
