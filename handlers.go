@@ -178,11 +178,22 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
             }
         }
 
+        var port int
+        if len(c.Ports) > 0 {
+            for _, p := range c.Ports {
+                if p.PublicPort != 0 {
+                    port = int(p.PublicPort)
+                    break
+                }
+            }
+        }
+
         liveServers = append(liveServers, map[string]interface{}{
             "ID":      c.ID[:12],
             "Name":    name,
             "Players": GetPlayersForServer(name),
             "Slots":   slots,
+            "Port":    port,
         })
     }
 
