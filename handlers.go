@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
-	"encoding/json"
+
+	"github.com/docker/docker/api/types/container"
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
@@ -29,8 +31,12 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hostPort := fmt.Sprintf("%d", baseHostPort+serverCounter)
-	containerPort := fmt.Sprintf("%d", baseContainerPort)
+	availablePort, err := findAvailablePort()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("no available ports: %v", err), http.StatusInternalServerError)
+		return
+	}
+	hostPort := strconv.Itoa(availablePort)
 
 	image := r.URL.Query().Get("image")
 	if image == "" {
@@ -39,7 +45,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 
 	// Get player slots from query parameter
 	playerSlotsParam := r.URL.Query().Get("players")
-	playerSlots := 1
+	playerSlots := 2
 	if playerSlotsParam != "" {
 		if parsedSlots, err := strconv.Atoi(playerSlotsParam); err == nil && parsedSlots > 0 {
 			playerSlots = parsedSlots
@@ -54,9 +60,14 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	// Calculate memory limit based on player slots
 	totalMemory := defaultMemoryLimit + (int64(playerSlots-1) * memoryPerPlayer)
 
-	containerID, err := CreateContainerFromTemplate(r.Context(), image, name, hostPort, containerPort, totalMemory, ownerID)
+	containerID, err := CreateContainer(r.Context(), image, name, hostPort, totalMemory, ownerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = StartContainer(r.Context(), containerID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to start container: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -67,7 +78,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
             "slots": %d
         }`, containerID, name, playerSlots)
 
-        req, err := http.NewRequest("POST", "http://localhost:8000/api/servers", strings.NewReader(jsonData))
+        req, err := http.NewRequest("POST", "http://host.docker.internal:8000/api/servers", strings.NewReader(jsonData))
         if err != nil {
             fmt.Println("Laravel request error:", err)
             return
@@ -87,11 +98,10 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
         fmt.Println("Server saved in Laravel:", resp.Status)
     }()
 
-    servers = append(servers, Server{
-        ID:      len(servers) + 1,
-        Name:    name,
-        Slots:   playerSlots,
-    })
+	SVRPort, err := strconv.Atoi(hostPort)
+	if err == nil {
+		AddSRVRecord(SVRPort, name)
+	}
 
 	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots\n", containerID, name, hostPort, playerSlots)
 }
@@ -136,12 +146,47 @@ func GetPlayers(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetServers(w http.ResponseWriter, r *http.Request) {
+    cli, err := getDockerClient()
+    if err != nil {
+        http.Error(w, err.Error(), 500)
+        return
+    }
 
-	for i := range servers {
-		servers[i].Players = GetPlayersForServer(servers[i].Name)
-	}
+    containers, err := cli.ContainerList(context.Background(), container.ListOptions{})
+    if err != nil {
+        http.Error(w, err.Error(), 500)
+        return
+    }
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(servers)
-	fmt.Println("Servers count:", len(servers))
+    var liveServers []map[string]interface{}
+
+    for _, c := range containers {
+        if c.Labels["app"] != "vintagestory" {
+            continue
+        }
+
+        name := c.Labels["name"]
+        
+        slots := 1
+        if val, ok := c.Labels["slots"]; ok {
+            if p, err := strconv.Atoi(val); err == nil {
+                slots = p
+            }
+        } else if val, ok := c.Labels["players"]; ok { // Fallback if old code created them
+            if p, err := strconv.Atoi(val); err == nil {
+                slots = p
+            }
+        }
+
+        liveServers = append(liveServers, map[string]interface{}{
+            "ID":      c.ID[:12],
+            "Name":    name,
+            "Players": GetPlayersForServer(name),
+            "Slots":   slots,
+        })
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(liveServers)
+    fmt.Println("Servers count:", len(liveServers))
 }

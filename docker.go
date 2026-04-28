@@ -17,7 +17,8 @@ import (
 )
 
 // checks for an available port starting from a given base port
-func findAvailablePort(basePort int) (int, error) {
+func findAvailablePort() (int, error) {
+	basePort := 42420
 	for port := basePort; port < basePort+1000; port++ {
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 		if err == nil {
@@ -28,19 +29,10 @@ func findAvailablePort(basePort int) (int, error) {
 	return 0, fmt.Errorf("no available ports found")
 }
 
-func CreateContainerFromTemplate(ctx context.Context, image string, name string, hostPort string, containerPort string, memoryLimit int64, ownerID string) (string, error) {
-	// Check if the port is available
-	availablePort, err := findAvailablePort(baseHostPort + serverCounter)
-	if err != nil {
-		return "", fmt.Errorf("no available ports: %w", err)
-	}
-	hostPort = strconv.Itoa(availablePort)
+func CreateContainer(ctx context.Context, image string, name string, hostPort string, memoryLimit int64, ownerID string) (string, error) {
+	containerPort := "42420"
 
-	cli, err := client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithAPIVersionNegotiation(),
-		client.WithVersion("1.44"),
-	)
+	cli, err := getDockerClient()
 	if err != nil {
 		return "", fmt.Errorf("docker client error: %w", err)
 	}
@@ -71,16 +63,14 @@ func CreateContainerFromTemplate(ctx context.Context, image string, name string,
                 nat.Port(containerPort + "/tcp"): struct{}{},
                 nat.Port(containerPort + "/udp"): struct{}{},
             },
-            Labels: map[string]string{
-                "owner-id": ownerID,
-            },
+		Labels: map[string]string{
+			"owner-id": ownerID,
+		},
+		Tty:       true,
+		OpenStdin: true,
 	}, hostConfig, nil, nil, name)
 	if err != nil {
 		return "", fmt.Errorf("container create error: %w", err)
-	}
-
-	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", fmt.Errorf("container start error: %w", err)
 	}
 
 	return resp.ID, nil

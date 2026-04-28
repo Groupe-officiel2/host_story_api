@@ -21,17 +21,26 @@ Container launched: <container_id> with name server3 on host port 42722 and 3 pl
 Start the server:
 
 ```bash
-go run .
-
 # Test endpoint protégé
 TOKEN=$(python3 generate_jwt.py | awk '{print $4}')
-curl -H "Authorization: $TOKEN" http://localhost:8080/protected
-
+curl -H "Authorization: $TOKEN" http://0.0.0.0/protected
 # Crée un serveur nommé paladium avec 2 joueurs
-curl -H "Authorization: $TOKEN" "http://localhost:8080/template?image=server-vintagestory:latest&players=2&name=example"
-
+curl -H "Authorization: $TOKEN" "http://0.0.0.0/template?image=server-vintagestory:latest&players=2&name=example"
 # Toggle le serveur paladium
-curl -H "Authorization: $TOKEN" "http://localhost:8080/toggle?name=example"
+curl -H "Authorization: $TOKEN" "http://82.67.195.93:8082/toggle?name=example"
+```
+
+```bash
+docker build -t host-story-api:1.0 .
+```
+
+```bash
+docker run -d \
+  --name host-story-api \
+  --restart unless-stopped \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  host-story-api:1.0
 ```
 
 
