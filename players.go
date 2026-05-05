@@ -47,7 +47,7 @@ func GetPlayersForServer(containerName string) int {
 				logContent := stdout.String()
 
 				joins := strings.Count(logContent, " joins.")
-				leaves := strings.Count(logContent, " disconnected")
+				leaves := strings.Count(logContent, " disconnected.")
 
 				players := joins - leaves
 

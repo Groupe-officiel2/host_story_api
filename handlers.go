@@ -152,7 +152,7 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    containers, err := cli.ContainerList(context.Background(), container.ListOptions{})
+    containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
     if err != nil {
         http.Error(w, err.Error(), 500)
         return
@@ -161,11 +161,15 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
     var liveServers []map[string]interface{}
 
     for _, c := range containers {
-        if c.Labels["app"] != "vintagestory" {
+        // Accept containers created by API (owner-id) or matching the image
+        if c.Labels["owner-id"] == "" && c.Labels["com.docker.compose.service"] != "vintagestory" {
             continue
         }
 
         name := c.Labels["name"]
+        if name == "" && len(c.Names) > 0 {
+            name = strings.TrimPrefix(c.Names[0], "/")
+        }
         
         slots := 1
         if val, ok := c.Labels["slots"]; ok {
@@ -194,6 +198,7 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
             "Players": GetPlayersForServer(name),
             "Slots":   slots,
             "Port":    port,
+            "State":   c.State,
         })
     }
 
