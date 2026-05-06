@@ -1,4 +1,4 @@
-module host_story_api_go
+module host_story_api
 
 go 1.25.0
 

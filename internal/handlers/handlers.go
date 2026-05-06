@@ -1,6 +1,4 @@
-// handlers.go
-
-package main
+package handlers
 
 import (
 	"context"
@@ -11,14 +9,17 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
+	"host_story_api/internal/auth"
+	"host_story_api/internal/common"
+	"host_story_api/internal/docker"
 )
 
 // CreateTemplateContainer handles the creation of a new container from a template
 func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
-	serverMutex.Lock()
-	defer serverMutex.Unlock()
+	common.ServerMutex.Lock()
+	defer common.ServerMutex.Unlock()
 
-	ownerID := UserIDFromContext(r.Context())
+	ownerID := auth.UserIDFromContext(r.Context())
 	if ownerID == "" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -31,7 +32,7 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	availablePort, err := findAvailablePort()
+	availablePort, err := docker.FindAvailablePort()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("no available ports: %v", err), http.StatusInternalServerError)
 		return
@@ -60,12 +61,12 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 	// Calculate memory limit based on player slots
 	totalMemory := defaultMemoryLimit + (int64(playerSlots-1) * memoryPerPlayer)
 
-	containerID, err := CreateContainer(r.Context(), image, name, hostPort, totalMemory, ownerID)
+	containerID, err := docker.CreateContainer(r.Context(), image, name, hostPort, totalMemory, ownerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	err = StartContainer(r.Context(), containerID)
+	err = docker.StartContainer(r.Context(), containerID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to start container: %v", err), http.StatusInternalServerError)
 		return
@@ -100,9 +101,8 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 
 	SVRPort, err := strconv.Atoi(hostPort)
 	if err == nil {
-		AddSRVRecord(SVRPort, name)
+		docker.AddSRVRecord(SVRPort, name)
 	}
-
 	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots\n", containerID, name, hostPort, playerSlots)
 }
 
@@ -114,13 +114,13 @@ func ToggleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actorRole := UserRoleFromContext(r.Context())
+	actorRole := auth.UserRoleFromContext(r.Context())
 	if !strings.EqualFold(actorRole, "admin") {
 		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
 		return
 	}
 
-	result, err := ToggleContainer(context.Background(), name)
+	result, err := docker.ToggleContainer(context.Background(), name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -146,7 +146,7 @@ func GetPlayers(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetServers(w http.ResponseWriter, r *http.Request) {
-    cli, err := getDockerClient()
+    cli, err := docker.GetDockerClient()
     if err != nil {
         http.Error(w, err.Error(), 500)
         return

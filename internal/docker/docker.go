@@ -1,6 +1,4 @@
-// docker.go
-
-package main
+package docker
 
 import (
 	"context"
@@ -17,7 +15,7 @@ import (
 )
 
 // checks for an available port starting from a given base port
-func findAvailablePort() (int, error) {
+func FindAvailablePort() (int, error) {
 	basePort := 42420
 	for port := basePort; port < basePort+1000; port++ {
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -32,7 +30,7 @@ func findAvailablePort() (int, error) {
 func CreateContainer(ctx context.Context, image string, name string, hostPort string, memoryLimit int64, ownerID string) (string, error) {
 	containerPort := "42420"
 
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return "", fmt.Errorf("docker client error: %w", err)
 	}
@@ -76,7 +74,7 @@ func CreateContainer(ctx context.Context, image string, name string, hostPort st
 	return resp.ID, nil
 }
 
-func getDockerClient() (*client.Client, error) {
+func GetDockerClient() (*client.Client, error) {
 	return client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -84,7 +82,7 @@ func getDockerClient() (*client.Client, error) {
 }
 
 func StartContainer(ctx context.Context, id string) error {
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return err
 	}
@@ -93,7 +91,7 @@ func StartContainer(ctx context.Context, id string) error {
 }
 
 func StopContainer(ctx context.Context, id string) error {
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return err
 	}
@@ -132,7 +130,7 @@ func findContainerIDByName(ctx context.Context, cli *client.Client, name string)
 }
 
 func ToggleContainer(ctx context.Context, name string) (string, error) {
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return "", err
 	}
