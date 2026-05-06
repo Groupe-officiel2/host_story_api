@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"syscall"
 
 	"github.com/joho/godotenv"
 
@@ -21,6 +23,12 @@ func main() {
 	handlers.RegisterRoutes()
 
 	fmt.Printf("(http://localhost%s)\n", port)
-	http.ListenAndServe(port, nil)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		message := "server startup error: " + err.Error()
+		if errors.Is(err, syscall.EADDRINUSE) {
+			message = "port unavailable: " + port
+		}
+		log.Fatal(message)
+	}
 
 }
