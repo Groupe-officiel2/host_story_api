@@ -1,7 +1,9 @@
 FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
-COPY *.go .
+COPY cmd ./cmd
+COPY internal ./internal
+COPY configs ./configs
 
 RUN go mod init host_story_api
 RUN go get github.com/docker/docker@v28.5.2+incompatible \
@@ -15,11 +17,12 @@ RUN go get github.com/docker/docker@v28.5.2+incompatible \
     github.com/ovh/go-ovh@v1.9.0
 RUN go mod tidy
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/api .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/api ./cmd/api
 
 FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /out/api /app/api
+COPY --from=builder /app/configs /app/configs
 
 EXPOSE 8082
 CMD ["/app/api"]
