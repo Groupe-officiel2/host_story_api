@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
+	"log"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -30,30 +32,39 @@ func GetPlayersForServer(containerName string) int {
 				reader, err := cli.ContainerLogs(context.Background(), c.ID, container.LogsOptions{
 					ShowStdout: true,
 					ShowStderr: true,
-					Tail:       "1000",
+					Tail:       "all",
 				})
+				if err != nil {
+					log.Printf("Logs err: %v", err)
+					return 0
+				}
+
+				contentBytes, err := io.ReadAll(reader)
 				if err != nil {
 					return 0
 				}
 
 				var stdout, stderr bytes.Buffer
-
-				// 🔥 TRÈS IMPORTANT
-				_, err = stdcopy.StdCopy(&stdout, &stderr, reader)
+				_, err = stdcopy.StdCopy(&stdout, &stderr, bytes.NewReader(contentBytes))
+				var logContent string
 				if err != nil {
-					return 0
+					logContent = string(contentBytes)
+				} else {
+					logContent = stdout.String()
 				}
 
-				logContent := stdout.String()
-
-				joins := strings.Count(logContent, " joins.")
-				leaves := strings.Count(logContent, " disconnected.")
-
-				players := joins - leaves
-
-				if players < 0 {
-					return 0
+				players := 0
+				for _, line := range strings.Split(logContent, "\n") {
+					if strings.Contains(line, " joins.") {
+						players++
+					} else if strings.Contains(line, " disconnected.") {
+						players--
+						if players < 0 {
+							players = 0
+						}
+					}
 				}
+				log.Printf("Container %s: computed players=%d", containerName, players)
 
 				return players
 			}
