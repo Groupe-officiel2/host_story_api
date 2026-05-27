@@ -17,7 +17,7 @@ const port = ":8082"
 func main() {
 	err := godotenv.Load("configs/.env")
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		log.Printf("Warning: .env file not found, using system environment variables")
 	}
 
 	handlers.RegisterRoutes()
@@ -30,5 +30,4 @@ func main() {
 		}
 		log.Fatal(message)
 	}
-
 }

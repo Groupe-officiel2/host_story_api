@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/docker/docker/api/types/container"
 	"host_story_api/internal/auth"
 	"host_story_api/internal/common"
 	"host_story_api/internal/docker"
@@ -70,8 +72,37 @@ func CreateTemplateContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    go func() {
+        jsonData := fmt.Sprintf(`{
+            "id": "%s",
+            "name": "%s",
+            "slots": %d
+        }`, containerID, name, playerSlots)
+
+        req, err := http.NewRequest("POST", "http://host.docker.internal:8000/api/servers", strings.NewReader(jsonData))
+        if err != nil {
+            fmt.Println("Laravel request error:", err)
+            return
+        }
+
+        req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("X-API-KEY", "SECRET123")
+
+        client := &http.Client{}
+        resp, err := client.Do(req)
+        if err != nil {
+            fmt.Println("Laravel API error:", err)
+            return
+        }
+        defer resp.Body.Close()
+
+        fmt.Println("Server saved in Laravel:", resp.Status)
+    }()
+
 	SVRPort, err := strconv.Atoi(hostPort)
-	docker.AddSRVRecord(SVRPort, name)
+	if err == nil {
+		docker.AddSRVRecord(SVRPort, name)
+	}
 	fmt.Fprintf(w, "Container launched: %s with name %s on host port %s and %d player slots\n", containerID, name, hostPort, playerSlots)
 }
 
@@ -96,4 +127,82 @@ func ToggleHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "Container %s %s\n", name, result)
+}
+
+func GetPlayers(w http.ResponseWriter, r *http.Request) {
+
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "server name required", http.StatusBadRequest)
+		return
+	}
+
+	players := GetPlayersForServer(name)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{
+		"players": players,
+	})
+}
+
+func GetServers(w http.ResponseWriter, r *http.Request) {
+    cli, err := docker.GetDockerClient()
+    if err != nil {
+        http.Error(w, err.Error(), 500)
+        return
+    }
+
+    containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
+    if err != nil {
+        http.Error(w, err.Error(), 500)
+        return
+    }
+
+    var liveServers []map[string]interface{}
+
+    for _, c := range containers {
+        // Accept containers created by API (owner-id) or matching the image
+        if c.Labels["owner-id"] == "" && c.Labels["com.docker.compose.service"] != "vintagestory" {
+            continue
+        }
+
+        name := c.Labels["name"]
+        if name == "" && len(c.Names) > 0 {
+            name = strings.TrimPrefix(c.Names[0], "/")
+        }
+        
+        slots := 1
+        if val, ok := c.Labels["slots"]; ok {
+            if p, err := strconv.Atoi(val); err == nil {
+                slots = p
+            }
+        } else if val, ok := c.Labels["players"]; ok { // Fallback if old code created them
+            if p, err := strconv.Atoi(val); err == nil {
+                slots = p
+            }
+        }
+
+        var port int
+        if len(c.Ports) > 0 {
+            for _, p := range c.Ports {
+                if p.PublicPort != 0 {
+                    port = int(p.PublicPort)
+                    break
+                }
+            }
+        }
+
+        liveServers = append(liveServers, map[string]interface{}{
+            "ID":      c.ID[:12],
+            "Name":    name,
+            "Players": GetPlayersForServer(name),
+            "Slots":   slots,
+            "Port":    port,
+            "State":   c.State,
+        })
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(liveServers)
+    fmt.Println("Servers count:", len(liveServers))
 }

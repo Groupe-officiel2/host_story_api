@@ -1,0 +1,131 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
+    "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+)
+
+func main() {
+
+	http.HandleFunc("/servers", func(w http.ResponseWriter, r *http.Request) {
+
+		cli, err := client.NewClientWithOpts(client.FromEnv)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+        containers, err := cli.ContainerList(context.Background(), container.ListOptions{})
+        if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		var servers []map[string]interface{}
+
+		for _, c := range containers {
+
+       		if c.Labels["app"] != "vintagestory" {
+     			continue
+        	}
+
+        	name := c.Labels["name"]
+
+        	slots := 1
+        	if val, ok := c.Labels["slots"]; ok {
+        		if p, err := strconv.Atoi(val); err == nil {
+                    slots = p
+                }
+        	}
+
+        	servers = append(servers, map[string]interface{}{
+        		"ID":      c.ID[:12],
+        		"Name":    name,
+        		"Players": GetPlayersForServer(name),
+        		"Slots":   slots,
+        	})
+        }
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(servers)
+	})
+
+    http.HandleFunc("/create-server", func(w http.ResponseWriter, r *http.Request) {
+
+    		name := r.URL.Query().Get("name")
+    		slotsStr := r.URL.Query().Get("slots")
+    		image := r.URL.Query().Get("image")
+
+            // Si c'est un POST JSON (comme depuis Laravel)
+            if r.Method == http.MethodPost {
+                var body struct {
+                    Name  string `json:"name"`
+                    Slots int    `json:"slots"`
+                    Image string `json:"image"`
+                }
+                if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+                    if body.Name != "" { name = body.Name }
+                    if body.Slots != 0 { slotsStr = strconv.Itoa(body.Slots) }
+                    if body.Image != "" { image = body.Image }
+                }
+            }
+
+    		if name == "" || slotsStr == "" {
+                if image == "" { image = "server-vintagestory:latest" }
+            }
+
+            if name == "" || slotsStr == "" {
+    			http.Error(w, "Missing parameters (name or slots)", 400)
+    			return
+    		}
+
+    		slots, _ := strconv.Atoi(slotsStr)
+
+    		cli, err := client.NewClientWithOpts(client.FromEnv)
+    		if err != nil {
+    			http.Error(w, err.Error(), 500)
+    			return
+    		}
+
+    		resp, err := cli.ContainerCreate(
+    			context.Background(),
+    			&container.Config{
+    				Image: image,
+    				Labels: map[string]string{
+    					"app":     "vintagestory",
+    					"name":    name,
+    					"slots":   strconv.Itoa(slots),
+    				},
+    			},
+    			nil, nil, nil, "",
+    		)
+
+    		if err != nil {
+    			http.Error(w, err.Error(), 500)
+    			return
+    		}
+
+    		err = cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{})
+    		if err != nil {
+    			http.Error(w, err.Error(), 500)
+    			return
+    		}
+
+    		json.NewEncoder(w).Encode(map[string]interface{}{
+    			"id":      resp.ID[:12],
+    			"name":    name,
+    			"slots":   slots,
+    		})
+    	})
+
+	fmt.Println("Server running on :8082")
+
+	http.ListenAndServe("0.0.0.0:8082", nil)
+}

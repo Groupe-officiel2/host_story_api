@@ -30,16 +30,26 @@ func FindAvailablePort() (int, error) {
 func CreateContainer(ctx context.Context, image string, name string, hostPort string, memoryLimit int64, ownerID string) (string, error) {
 	containerPort := "42420"
 
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return "", fmt.Errorf("docker client error: %w", err)
 	}
 
 	hostConfig := &container.HostConfig{
-		PortBindings: map[nat.Port][]nat.PortBinding{
-			nat.Port(containerPort + "/tcp"): {{HostPort: hostPort}},
-			nat.Port(containerPort + "/udp"): {{HostPort: hostPort}},
-		},
+		PortBindings: nat.PortMap{
+            nat.Port(containerPort + "/tcp"): []nat.PortBinding{
+                {
+                    HostIP:   "0.0.0.0",
+                    HostPort: hostPort,
+                },
+            },
+            nat.Port(containerPort + "/udp"): []nat.PortBinding{
+                {
+                    HostIP:   "0.0.0.0",
+                    HostPort: hostPort,
+                },
+            },
+        },
 		Resources: container.Resources{
 			Memory: memoryLimit,
 		},
@@ -47,6 +57,10 @@ func CreateContainer(ctx context.Context, image string, name string, hostPort st
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image: image,
+		ExposedPorts: nat.PortSet{
+                nat.Port(containerPort + "/tcp"): struct{}{},
+                nat.Port(containerPort + "/udp"): struct{}{},
+            },
 		Labels: map[string]string{
 			"owner-id": ownerID,
 		},
@@ -60,7 +74,7 @@ func CreateContainer(ctx context.Context, image string, name string, hostPort st
 	return resp.ID, nil
 }
 
-func getDockerClient() (*client.Client, error) {
+func GetDockerClient() (*client.Client, error) {
 	return client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
@@ -68,7 +82,7 @@ func getDockerClient() (*client.Client, error) {
 }
 
 func StartContainer(ctx context.Context, id string) error {
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return err
 	}
@@ -77,7 +91,7 @@ func StartContainer(ctx context.Context, id string) error {
 }
 
 func StopContainer(ctx context.Context, id string) error {
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return err
 	}
@@ -116,7 +130,7 @@ func findContainerIDByName(ctx context.Context, cli *client.Client, name string)
 }
 
 func ToggleContainer(ctx context.Context, name string) (string, error) {
-	cli, err := getDockerClient()
+	cli, err := GetDockerClient()
 	if err != nil {
 		return "", err
 	}
