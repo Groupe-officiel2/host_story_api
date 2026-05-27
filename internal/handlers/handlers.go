@@ -161,8 +161,8 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
     var liveServers []map[string]interface{}
 
     for _, c := range containers {
-        // Accept containers created by API (owner-id) or matching the image
-        if c.Labels["owner-id"] == "" && c.Labels["com.docker.compose.service"] != "vintagestory" {
+        // Accept containers created by API (owner-id), compose service, or image name
+        if c.Labels["owner-id"] == "" && c.Labels["com.docker.compose.service"] != "vintagestory" && !strings.Contains(c.Image, "server-vintagestory") {
             continue
         }
 
