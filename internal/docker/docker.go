@@ -2,12 +2,9 @@ package docker
 
 import (
 	"context"
-	"net"
-	"strconv"
+	"fmt"
 	"strings"
 	"time"
-
-	"fmt"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -16,11 +13,29 @@ import (
 
 // checks for an available port starting from a given base port
 func FindAvailablePort() (int, error) {
+	ctx := context.Background()
+	cli, err := getDockerClient()
+	if err != nil {
+		return 0, fmt.Errorf("docker client error: %w", err)
+	}
+
+	runningContainers, err := cli.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("list containers error: %w", err)
+	}
+
+	usedPorts := make(map[int]struct{})
+	for _, item := range runningContainers {
+		for _, port := range item.Ports {
+			if port.PublicPort > 0 {
+				usedPorts[int(port.PublicPort)] = struct{}{}
+			}
+		}
+	}
+
 	basePort := 42420
 	for port := basePort; port < basePort+1000; port++ {
-		ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-		if err == nil {
-			ln.Close()
+		if _, exists := usedPorts[port]; !exists {
 			return port, nil
 		}
 	}
